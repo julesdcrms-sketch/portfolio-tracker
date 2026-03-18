@@ -1,0 +1,227 @@
+Tu retournes sur la page principale de ton repo (clique sur "Suivi de portefeuille" en haut à gauche).
+Une fois sur la page principale, clique sur "Ajouter un fichier" → "Créer un nouveau fichier".
+Écris dashboard.html dans le champ nom en haut, et colle ce contenu :
+html<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo">Portfolio <span>/ tracker</span></div>
+  <div class="tb-right">
+    <div class="tb-status"><span class="sdot"></span><span id="last-update">—</span></div>
+    <button id="refresh-btn" onclick="refreshPrices()"><span class="spin" id="spin-icon">↻</span> Actualiser</button>
+    <button class="btn-logout" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<nav class="nav">
+  <div class="nav-tab active" onclick="go('portfolio',this)">◈ Portfolio</div>
+  <div class="nav-tab" onclick="go('analyse',this)">◎ Analyse</div>
+  <div class="nav-tab" onclick="go('planifier',this)">∿ Planifier</div>
+  <div class="nav-tab" onclick="go('veille',this)">◻ Veille</div>
+  <div class="nav-tab" onclick="go('maj',this)">✎ Mise à jour</div>
+</nav>
+
+<main class="main">
+
+<div class="page active" id="page-portfolio">
+  <div class="g4" id="kpis"></div>
+  <div class="g2" style="align-items:start">
+    <div class="card">
+      <div class="card-lbl">Allocation vs cibles</div>
+      <div id="alloc-bars"></div>
+      <div style="margin-top:12px;font-size:10px;color:var(--text5)">Trait vertical = cible · Barre = poids réel</div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Répartition</div>
+      <div style="display:flex;align-items:center;gap:18px">
+        <div style="width:140px;height:140px;position:relative;flex-shrink:0"><canvas id="pie"></canvas></div>
+        <div style="display:flex;flex-direction:column;gap:10px;flex:1" id="pie-legend"></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-lbl">Positions</div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr>
+        <th>Actif</th><th>Parts</th><th>Prix unit.</th><th>Valeur</th>
+        <th>Perf. %</th><th>Perf. €</th><th>Poids réel</th><th>Cible / Écart</th>
+      </tr></thead>
+      <tbody id="pos-body"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<div class="page" id="page-analyse">
+  <div class="g2" style="align-items:start">
+    <div class="col">
+      <div class="card">
+        <div class="card-lbl">Exposition géographique</div>
+        <div id="geo-map-wrap" style="border-radius:10px;overflow:hidden;margin-bottom:14px;background:var(--bg3);min-height:220px;display:flex;align-items:center;justify-content:center">
+          <div style="font-size:11px;color:var(--text4)">Chargement de la carte…</div>
+        </div>
+        <div id="geo-bars"></div>
+        <div class="geo-legend" id="geo-legend"></div>
+      </div>
+      <div class="card">
+        <div class="card-lbl">Dividendes équivalents capitalisés</div>
+        <div class="div-row"><div style="color:var(--text3)">Réinvestis / an estimés</div><div class="mono up">~€9,10</div></div>
+        <div class="div-row"><div style="color:var(--text3)">Rendement moyen ETFs</div><div class="mono">~1,6%</div></div>
+        <div class="div-row"><div style="color:var(--text3)">Gain vs distributing (15 ans)</div><div class="mono up">+~12%</div></div>
+        <div style="margin-top:11px;font-size:11px;line-height:1.6;padding:10px 12px;background:var(--green-bg);border-radius:8px;color:var(--green)">Tes ETFs sont capitalisants — réinvestissement automatique, zéro frottement fiscal annuel. Optimal sur 15 ans+.</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <div class="card-lbl">Risque — calculé en direct depuis tes positions</div>
+        <div class="risk-g" id="risk-cards"></div>
+        <div id="risk-alerts"></div>
+      </div>
+      <div class="card">
+        <div class="card-lbl">Benchmark</div>
+        <div id="bench-bars"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-planifier">
+  <div class="g2" style="align-items:start">
+    <div class="col">
+      <div class="card">
+        <div class="card-lbl">Conseils de rééquilibrage</div>
+        <div id="advice-list"></div>
+        <div style="margin-top:12px;font-size:11px;color:var(--text4);padding:9px 12px;background:var(--bg);border-radius:8px">Montants sur DCA mensuel de <strong id="advice-dca-ref">€100</strong>.</div>
+      </div>
+      <div class="card">
+        <div class="card-lbl">Fiscalité estimée</div>
+        <div class="fisc-block">
+          <div class="fisc-head">PEA — ETFs (exonéré IR après 5 ans)</div>
+          <div class="fisc-row"><div style="color:var(--text3)">Plus-value latente ETFs</div><div class="mono up" id="fisc-pea-pv">—</div></div>
+          <div class="fisc-row"><div style="color:var(--text3)">Impôt sur le revenu</div><div class="mono" style="color:var(--green)">€0,00 — exonéré PEA</div></div>
+          <div class="fisc-row"><div style="color:var(--text3)">Prélèvements sociaux (17,2%)</div><div class="mono dn" id="fisc-pea-ps">—</div></div>
+          <div class="fisc-row"><div style="color:var(--text3)">Net si cession totale PEA</div><div class="mono up" id="fisc-pea-net">—</div></div>
+        </div>
+        <div class="fisc-block">
+          <div class="fisc-head">CTO — Crypto + Private Equity</div>
+          <div class="fisc-row"><div style="color:var(--text3)">Plus-value latente CTO</div><div class="mono" id="fisc-cto-pv">—</div></div>
+          <div class="fisc-row"><div style="color:var(--text3)">PFU si cession (30%)</div><div class="mono dn" id="fisc-cto-tax">—</div></div>
+          <div class="fisc-row"><div style="color:var(--text3)">Net si cession totale CTO</div><div class="mono up" id="fisc-cto-net">—</div></div>
+          <div style="font-size:11px;padding:9px 12px;border-radius:7px;margin-top:8px;line-height:1.5;background:var(--amber-bg);color:var(--amber)">Crypto France : PFU 30%. Exonéré si cessions &lt;€305/an. Déclarer comptes (formulaire 3916-bis).</div>
+        </div>
+        <div class="fisc-total"><span>Total impôt estimé si tout céder</span><span class="dn mono" id="fisc-total-tax">—</span></div>
+        <div style="margin-top:20px">
+          <div class="card-lbl" style="margin-bottom:14px">Simulateur cession</div>
+          <div class="sim-row"><div class="sim-lbl">Montant cédé</div><input type="range" min="0" max="600" value="100" step="10" id="f-amount" oninput="calcFisc()" style="flex:1"><div class="sim-out" id="f-amt-v">€100</div></div>
+          <div class="sim-row"><div class="sim-lbl">Enveloppe</div><select class="fi" id="f-env" onchange="calcFisc()" style="flex:1;max-width:220px"><option value="pea">PEA (&gt;5 ans — 17,2%)</option><option value="cto">CTO (PFU 30%)</option></select></div>
+          <div class="fisc-sim-res">
+            <div class="fisc-sim-rc"><div class="fisc-sim-rl">Plus-value</div><div class="fisc-sim-rv up" id="f-pv">—</div></div>
+            <div class="fisc-sim-rc"><div class="fisc-sim-rl">Impôt estimé</div><div class="fisc-sim-rv dn" id="f-tax">—</div></div>
+            <div class="fisc-sim-rc"><div class="fisc-sim-rl">Net reçu</div><div class="fisc-sim-rv up" id="f-net">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Simulateur projection</div>
+      <div class="sim-row"><div class="sim-lbl">Capital initial</div><input type="range" min="500" max="10000" value="573" step="50" id="s-cap" oninput="sim()" style="flex:1"><div class="sim-out" id="sv-cap">€573</div></div>
+      <div class="sim-row"><div class="sim-lbl">DCA mensuel</div><input type="range" min="0" max="2000" value="100" step="10" id="s-dca" oninput="sim()" style="flex:1"><div class="sim-out" id="sv-dca">€100</div></div>
+      <div class="sim-row"><div class="sim-lbl">Rendement / an</div><input type="range" min="2" max="15" value="8" step="0.5" id="s-rate" oninput="sim()" style="flex:1"><div class="sim-out" id="sv-rate">8%</div></div>
+      <div class="sim-row"><div class="sim-lbl">Horizon</div><input type="range" min="1" max="30" value="15" step="1" id="s-yr" oninput="sim()" style="flex:1"><div class="sim-out" id="sv-yr">15 ans</div></div>
+      <div class="sim-res">
+        <div class="sim-rc"><div class="sim-rl">Valeur finale</div><div class="sim-rv up" id="sv-final">—</div></div>
+        <div class="sim-rc"><div class="sim-rl">Total investi</div><div class="sim-rv" id="sv-inv">—</div></div>
+        <div class="sim-rc"><div class="sim-rl">Gain net</div><div class="sim-rv up" id="sv-gain">—</div></div>
+      </div>
+      <div style="position:relative;height:200px;margin-top:20px"><canvas id="sim-chart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-veille">
+  <div class="g2" style="align-items:start">
+    <div class="col">
+      <div class="card"><div class="card-lbl">ETF & Crypto news</div><div id="etf-news"></div></div>
+      <div class="card"><div class="card-lbl">Macro & markets</div><div id="macro-news"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Notes</div>
+      <div style="margin-bottom:12px">
+        <span class="note-tag" onclick="insertTag('DCA')">DCA</span>
+        <span class="note-tag" onclick="insertTag('Rééquilibrage')">Rééquilibrage</span>
+        <span class="note-tag" onclick="insertTag('Conviction')">Conviction</span>
+        <span class="note-tag" onclick="insertTag('Alerte')">Alerte</span>
+        <span class="note-tag" onclick="insertTag('Crypto')">Crypto</span>
+      </div>
+      <textarea class="note-area" id="note-input" placeholder="Ex : DCA €100 MSCI World…" oninput="saveNote()"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px">
+        <span style="font-size:11px;color:var(--text4)">Sauvegardé dans le navigateur.</span>
+        <button class="btn-n" style="padding:5px 12px;font-size:11px" onclick="addNoteEntry()">+ Ajouter entrée</button>
+      </div>
+      <div style="margin-top:20px"><div class="card-lbl">Journal</div><div id="note-entries"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-maj">
+  <div class="g2" style="align-items:start">
+    <div>
+      <div class="fs">
+        <div class="fs-title">Enregistrer une opération</div>
+        <div class="fr">
+          <div class="fg" style="flex:2"><div class="fl">Actif</div><select class="fi" id="maj-sel"></select></div>
+          <div class="fg"><div class="fl">Action</div><select class="fi" id="maj-action"><option value="buy">Achat</option><option value="sell">Vente</option></select></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><div class="fl">Nb de parts</div><input class="fi" type="number" id="maj-parts" placeholder="0" step="0.0001" min="0"></div>
+          <div class="fg"><div class="fl">Prix unitaire (€)</div><input class="fi" type="number" id="maj-price" placeholder="0,00" step="0.01" min="0"></div>
+          <div class="fg"><div class="fl">Date</div><input class="fi" type="date" id="maj-date"></div>
+        </div>
+        <div class="fr" style="margin-bottom:0">
+          <div class="fg" style="flex:2"><div class="fl">Performance manuelle % (PE, actifs non cotés)</div><input class="fi" type="number" id="maj-perf" placeholder="ex : 8.5" step="0.1"></div>
+          <div class="fg"><div class="fl">Période</div><select class="fi" id="maj-perf-period"><option>Annuelle</option><option>Depuis achat</option></select></div>
+        </div>
+        <div style="display:flex;gap:9px;margin-top:14px">
+          <button class="btn-g" onclick="validateOp()">✓ Valider</button>
+          <button class="btn-n" onclick="resetForm()">Annuler</button>
+        </div>
+        <div id="maj-feedback" style="margin-top:10px;font-size:11px;display:none"></div>
+      </div>
+      <div class="fs">
+        <div class="fs-title">Ajouter un nouvel actif</div>
+        <div class="fr">
+          <div class="fg" style="flex:2"><div class="fl">Nom</div><input class="fi" type="text" id="new-name" placeholder="ex : TOPIX Japan ETF"></div>
+          <div class="fg"><div class="fl">Ticker</div><input class="fi" type="text" id="new-ticker" placeholder="ex : VJPN"></div>
+        </div>
+        <div class="fr" style="margin-bottom:0">
+          <div class="fg"><div class="fl">Catégorie</div><select class="fi" id="new-cat"><option value="GÉO">Géographique</option><option value="THÉM.">Thématiques</option><option value="ALT.">Alternatifs</option></select></div>
+          <div class="fg"><div class="fl">Enveloppe</div><select class="fi" id="new-env"><option value="PEA">PEA</option><option value="CTO">CTO</option></select></div>
+          <div class="fg"><div class="fl">Cible %</div><input class="fi" type="number" id="new-cible" placeholder="5" min="0" max="100"></div>
+        </div>
+        <button class="btn-dark" style="margin-top:14px" onclick="addAsset()">+ Créer l'actif</button>
+        <div id="new-feedback" style="margin-top:10px;font-size:11px;display:none"></div>
+      </div>
+    </div>
+    <div class="card"><div class="card-lbl">Toutes les lignes</div><div id="maj-list"></div></div>
+  </div>
+</div>
+
+</main>
+<footer class="footer">◈ PORTFOLIO TRACKER — Données personnelles — Ne pas partager — Horizon 15 ans+</footer>
+
+<script src="data.js"></script>
+<script src="charts.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
